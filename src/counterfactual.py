@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from ast_grep_py import SgRoot
 
-from .families import ConceptFamily
+from .families import ConceptFamily, family_of
 
 _METAVAR = re.compile(r"\$([A-Z][A-Z0-9_]*)")
 
@@ -13,7 +13,6 @@ _METAVAR = re.compile(r"\$([A-Z][A-Z0-9_]*)")
 @dataclass(frozen=True)
 class CFRule:
     id: str
-    family: ConceptFamily
     pattern: str
     template: str
 
@@ -37,21 +36,21 @@ def _comparison_rules() -> list[CFRule]:
     rules = []
     for op, neg in _COMPARISON_NEGATION.items():
         safe = op.replace("=", "eq").replace("<", "lt").replace(">", "gt").replace("!", "ne")
-        rules.append(CFRule(f"cmp_{safe}", "COMPARISON_BOUNDARY", f"$A {op} $B", f"$A {neg} $B"))
+        rules.append(CFRule(f"cmp_{safe}", f"$A {op} $B", f"$A {neg} $B"))
     return rules
 
 
 RULES: list[CFRule] = [
     *_comparison_rules(),
-    CFRule("bool_true_false", "BOOLEAN_LOGIC", "True", "False"),
-    CFRule("bool_false_true", "BOOLEAN_LOGIC", "False", "True"),
-    CFRule("logic_and_or", "BOOLEAN_LOGIC", "$A and $B", "$A or $B"),
-    CFRule("range_off_by_one", "LOOP_STRUCTURE", "range($N)", "range($N + 1)"),
-    CFRule("return_negate", "RETURN_FLOW", "return $A", "return not $A"),
-    CFRule("call_swap_args", "FUNCTION_CALL", "$F($A, $B)", "$F($B, $A)"),
-    CFRule("redundant_parens", "RETURN_FLOW", "return $A", "return ($A)"),
-    CFRule("reorder_commutative_add", "DATA_FLOW", "$A + $B", "$B + $A"),
-    CFRule("eq_double_negation", "BOOLEAN_LOGIC", "$A == $B", "not ($A != $B)"),
+    CFRule("bool_true_false", "True", "False"),
+    CFRule("bool_false_true", "False", "True"),
+    CFRule("logic_and_or", "$A and $B", "$A or $B"),
+    CFRule("range_off_by_one", "range($N)", "range($N + 1)"),
+    CFRule("return_negate", "return $A", "return not $A"),
+    CFRule("call_swap_args", "$F($A, $B)", "$F($B, $A)"),
+    CFRule("redundant_parens", "return $A", "return ($A)"),
+    CFRule("reorder_commutative_add", "$A + $B", "$B + $A"),
+    CFRule("eq_double_negation", "$A == $B", "not ($A != $B)"),
 ]
 
 
@@ -67,7 +66,7 @@ def generate(source: str) -> list[CFResult]:
             out.append(
                 CFResult(
                     rule.id,
-                    rule.family,
+                    family_of(node),
                     node.kind(),
                     root.commit_edits([node.replace(replacement)]),
                     node.text(),
