@@ -1,0 +1,70 @@
+# Trace generation (fast PoC): serve DeepSeek-R1-Distill-Llama-70B (NVFP4) on the GB10 and
+# generate traces for 3 class-balanced records (diverged / equivalent / indeterminate), with self-verify.
+#
+# PREREQUISITE (one-time, needs sudo): enable the NVIDIA Docker runtime so `gpus: all` works —
+#   sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart docker
+#
+# Override via a .env file or the shell if needed:
+#   VLLM_IMAGE       - NVIDIA's DGX Spark vLLM image (native sm_121 kernels). The stock
+#                      vllm/vllm-openai image ships sm_120 kernels and FAILS on the GB10.
+#   MODEL            - vLLM-loadable NVFP4 checkpoint (fits ~120 GB, native Blackwell FP4).
+#   CODEFAITH_LIMIT  - records to process (default 3; set 0 for all 31).
+
+services:
+  vllm:
+    image: ${VLLM_IMAGE:-nvcr.io/nvidia/vllm:26.02-py3}
+    gpus: all
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    environment:
+      - HF_HOME=/root/.cache/huggingface
+    entrypoint: ["vllm", "serve"]
+    command:
+      - ${MODEL:-Kaleto/DeepSeek-R1-Distill-Llama-70B-NVFP4}
+      - --revision
+      - ${MODEL_REVISION:-main}
+      - --reasoning-parser
+      - deepseek_r1
+      - --max-model-len
+      - "32768"
+      - --gpu-memory-utilization
+      - "0.9"
+      - --seed
+      - "0"
+      - --port
+      - "8000"
+    # Bind-mount the host HF cache: it already holds the configured token and caches weights.
+    volumes:
+      - ${HOME}/.cache/huggingface:/root/.cache/huggingface
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 60
+      start_period: 1800s   # first run downloads + loads the ~40 GB NVFP4 weights
+
+  tracegen:
+    build:
+      context: .
+      dockerfile: Dockerfile.tracegen
+    # Run as the host user so files written to the ./out mount aren't root-owned.
+    # Override if your uid/gid differ: HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose up
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    depends_on:
+      vllm:
+        condition: service_healthy
+    environment:
+      - CODEFAITH_BASE_URL=http://vllm:8000/v1
+      - CODEFAITH_MODEL=${MODEL:-Kaleto/DeepSeek-R1-Distill-Llama-70B-NVFP4}
+      - CODEFAITH_API_KEY=EMPTY
+      - CODEFAITH_TEMPERATURE=0.6
+      - CODEFAITH_SEED=0
+      - CODEFAITH_VERIFIER=1
+      - CODEFAITH_LIMIT=${CODEFAITH_LIMIT:-3}   # fast PoC: 3 class-balanced records (set 0 for all 31)
+    volumes:
+      - ./out:/app/out
+    command: ["python", "-m", "src.tracegen", "out/ground_truth.jsonl"]

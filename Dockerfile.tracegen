@@ -1,0 +1,14 @@
+# Lean trace-generation runner image (arm64). Talks to the vllm service over the
+# compose network; no GPU needed here. AST core + the openai client only.
+FROM python:3.12-slim
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+WORKDIR /app
+ENV VIRTUAL_ENV=/opt/venv PATH="/opt/venv/bin:$PATH"
+RUN uv venv /opt/venv
+RUN uv pip install "ast-grep-py>=0.39" "openai>=1.0"
+
+COPY src ./src
+
+CMD ["python", "-m", "src.tracegen", "out/ground_truth.jsonl"]

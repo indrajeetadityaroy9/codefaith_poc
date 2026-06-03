@@ -49,9 +49,6 @@ RULES: list[CFRule] = [
     CFRule("range_off_by_one", "LOOP_STRUCTURE", "range($N)", "range($N + 1)"),
     CFRule("return_negate", "RETURN_FLOW", "return $A", "return not $A"),
     CFRule("call_swap_args", "FUNCTION_CALL", "$F($A, $B)", "$F($B, $A)"),
-    # Semantics-preserving controls (the oracle still decides the label; these
-    # are rewrites *expected* to be equivalent, mixed into existing families so
-    # family does not leak the label).
     CFRule("redundant_parens", "RETURN_FLOW", "return $A", "return ($A)"),
     CFRule("reorder_commutative_add", "DATA_FLOW", "$A + $B", "$B + $A"),
     CFRule("eq_double_negation", "BOOLEAN_LOGIC", "$A == $B", "not ($A != $B)"),

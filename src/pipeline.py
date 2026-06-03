@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from . import counterfactual, factual, oracle
 
-# A function using any of these can't be trusted to the deterministic oracle
-# (non-determinism, I/O, hidden state) — such mutations are tagged indeterminate.
 _EFFECTFUL = (
     "random.", "time.", "datetime", "open(", "input(", "print(",
     "socket", "requests", "urllib", "os.", "sys.", "subprocess",

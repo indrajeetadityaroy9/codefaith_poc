@@ -7,3 +7,8 @@ requires-python = ">=3.12"
 dependencies = [
     "ast-grep-py>=0.39",
 ]
+
+[project.optional-dependencies]
+llm = [
+    "openai>=1.0",
+]
