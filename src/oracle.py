@@ -35,17 +35,21 @@ def _load(source: str) -> dict:
     return ns
 
 
-def compare(factual_src: str, counterfactual_src: str, func_name: str) -> tuple[str, str | None]:
+def compare(factual_src: str, counterfactual_src: str, func_name: str) -> tuple[str, dict | None]:
     fn_f = _load(factual_src)[func_name]
     fn_c = _load(counterfactual_src)[func_name]
-    arity = sum(1 for p in inspect.signature(fn_f).parameters.values() if p.kind in _POSITIONAL)
+    params = [p.name for p in inspect.signature(fn_f).parameters.values() if p.kind in _POSITIONAL]
 
     clean = 0
-    for args in itertools.product(POOL, repeat=arity):
+    for args in itertools.product(POOL, repeat=len(params)):
         out_f = _run(fn_f, args)
         out_c = _run(fn_c, args)
         if out_f != out_c:
-            return "diverged", repr(args)
+            return "diverged", {
+                "input": dict(zip(params, args)),
+                "factual_output": out_f[1],
+                "counterfactual_output": out_c[1],
+            }
         if out_f[0] == "ok" and out_c[0] == "ok":
             clean += 1
     return ("equivalent" if clean else "indeterminate"), None

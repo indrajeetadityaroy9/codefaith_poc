@@ -4,10 +4,9 @@ import argparse
 import json
 import pathlib
 from collections import Counter
-from dataclasses import asdict
 
 from .loader import load_corpus
-from .pipeline import make_dataset
+from .pipeline import build
 
 
 def main() -> None:
@@ -15,19 +14,20 @@ def main() -> None:
     ap.add_argument("corpus_dir")
     args = ap.parse_args()
 
-    pairs = make_dataset(load_corpus(args.corpus_dir))
+    records, stats = build(load_corpus(args.corpus_dir))
 
-    out_path = pathlib.Path("out/pairs.jsonl")
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    with out_path.open("w") as f:
-        for p in pairs:
-            f.write(json.dumps(asdict(p)) + "\n")
+    out = pathlib.Path("out/ground_truth.jsonl")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w") as f:
+        for r in records:
+            f.write(json.dumps(r, default=repr) + "\n")
 
-    by_behavior = Counter(p.behavior for p in pairs)
-    print(f"pairs: {len(pairs)} -> {out_path}")
-    for behavior in ("diverged", "equivalent", "indeterminate"):
-        if by_behavior[behavior]:
-            print(f"  {behavior}: {by_behavior[behavior]}")
+    counts = Counter(r["oracle"] for r in records)
+    print(f"records: {len(records)} -> {out}")
+    for verdict in ("diverged", "equivalent", "indeterminate"):
+        if counts[verdict]:
+            print(f"  {verdict}: {counts[verdict]} ({counts[verdict] / len(records):.0%})")
+    print(json.dumps(stats))
 
 
 if __name__ == "__main__":
