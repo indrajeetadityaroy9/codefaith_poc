@@ -1,4 +1,4 @@
-# Lean trace-generation runner image (arm64). Talks to the vllm service over the
+# Lean faithfulness-probe runner image (arm64). Talks to the vllm service over the
 # compose network; no GPU needed here. AST core + the openai client only.
 FROM python:3.12-slim
 
@@ -11,4 +11,4 @@ RUN uv pip install "ast-grep-py>=0.39" "openai>=1.0"
 
 COPY src ./src
 
-CMD ["python", "-m", "src.tracegen", "out/ground_truth.jsonl"]
+CMD ["python", "-m", "src.probe", "probes"]
